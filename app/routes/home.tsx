@@ -15,6 +15,10 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: 'Roteiro PTChat' }];
 }
 
+export const links = (() => [
+  { rel: 'icon', href: '/favicon.png' },
+]) satisfies Route.LinksFunction;
+
 export async function loader({ context, params, request }: Route.LoaderArgs) {
   return {
     table: await apiLoader({
