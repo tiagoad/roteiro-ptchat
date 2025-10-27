@@ -303,6 +303,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       center: [13.388, 52.517],
       zoom: 1,
       container: mapDivRef.current,
+      attributionControl: {
+        compact: true,
+        customAttribution: [
+          '<a target="_blank" href="https://github.com/tiagoad/roteiro-ptchat">tiagoad@github/roteiro-ptchat</a>',
+        ],
+      },
     });
 
     mapRef.current = map;
