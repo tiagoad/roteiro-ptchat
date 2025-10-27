@@ -8,12 +8,7 @@ const PLACE_REGEXP = new RegExp(
   /https:\/\/www.google.com\/maps\/place\/.+\/data=!.+!.+![0-9]+s([0-9A-Za-z-]+)/
 );
 
-export async function loader({ context }: Route.LoaderArgs) {
-  const existing = await context.cloudflare.env.KV.get('sheets-data');
-  if (existing) {
-    return JSON.parse(existing);
-  }
-
+async function uncachedLoader({ context }: Route.LoaderArgs) {
   const sheetId = '1jGBpghcuheyLSHMmsIEGt106p-SerbnBbOkZlOpW3lI';
   const apiURL = new URL(
     `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}`
@@ -26,7 +21,7 @@ export async function loader({ context }: Route.LoaderArgs) {
     apiURL.searchParams.set('key', context.cloudflare.env.GOOGLE_API_KEY);
     const res = await fetch(apiURL);
     if (!res.ok) {
-      throw res;
+      throw new Response('Failed to read sheet metadata', { status: 400 });
     }
     const data = await res.json<sheets_v4.Schema$Spreadsheet>();
     const table = data.sheets?.[0]?.tables?.[0];
@@ -124,7 +119,8 @@ export async function loader({ context }: Route.LoaderArgs) {
         const placeRes = await fetch(placesURL);
 
         if (!placeRes.ok) {
-          throw placeRes;
+          return undefined;
+          //throw new Response('Failed to read place metadata', { status: 400 });
         }
 
         const placeMetadata =
@@ -136,6 +132,7 @@ export async function loader({ context }: Route.LoaderArgs) {
             city: data.Cidade.data.formattedValue!,
             name: data['Google Maps'].data.formattedValue!,
             metadata: placeMetadata,
+            url: mapsUrl,
           },
           user: data.User.data.formattedValue!,
           ranking: data.Rank.data.effectiveValue!.numberValue,
@@ -145,9 +142,22 @@ export async function loader({ context }: Route.LoaderArgs) {
     )
   ).filter((v) => !!v);
 
-  const output = { rows, placeTypes };
-  await context.cloudflare.env.KV.put('sheets-data', JSON.stringify(output), {
-    expirationTtl: CACHE_SECONDS,
-  });
-  return output;
+  return { rows, placeTypes };
+}
+
+export async function loader(props: Route.LoaderArgs) {
+  const existing = await props.context.cloudflare.env.KV.get('sheets-data');
+  if (existing != null) {
+    return JSON.parse(existing) as Awaited<ReturnType<typeof uncachedLoader>>;
+  } else {
+    const output = await uncachedLoader(props);
+    await props.context.cloudflare.env.KV.put(
+      'sheets-data',
+      JSON.stringify(output),
+      {
+        expirationTtl: CACHE_SECONDS,
+      }
+    );
+    return output;
+  }
 }

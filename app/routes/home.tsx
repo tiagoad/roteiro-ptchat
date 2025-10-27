@@ -9,6 +9,8 @@ import classes from './home.module.css';
 import { useLoaderData } from 'react-router';
 import Color from 'colorjs.io';
 
+import DOMPurify from 'dompurify';
+
 export function meta({}: Route.MetaArgs) {
   return [{ title: 'Roteiro PTChat' }];
 }
@@ -123,10 +125,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
         `<div class="${classes.popup}">
-            <div class="name">${row.location.name}</div>
-            <div class="user">${row.user}</div>
+            <div class="name"><a href="${row.location.url!}">${DOMPurify.sanitize(row.location.name)}</a></div>
+            <div class="user">${DOMPurify.sanitize(row.user)}</div>
             <hr />
-            <div class="notes}">${row.notes}</div>
+            <div class="notes}">${DOMPurify.sanitize(row.notes!)}</div>
         </div>`
       );
 

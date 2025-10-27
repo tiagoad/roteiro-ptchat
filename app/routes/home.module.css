@@ -41,7 +41,9 @@ body,
 .popup {
     > :global(.name) {
         font-weight: bold;
-    }   
+        color: darkblue;
+        text-decoration: underline;
+    }
 
     hr {
         margin: .5em 0;
