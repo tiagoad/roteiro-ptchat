@@ -143,7 +143,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         }
       });
 
-      const gradient = `linear-gradient(45deg, ${gradientColors.join(', ')})`;
+      const gradient = `linear-gradient(to right, ${gradientColors.join(', ')})`;
 
       el.style.background = gradient;
 
