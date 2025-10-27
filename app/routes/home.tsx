@@ -272,8 +272,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       {
         animate: false,
-
-        maxZoom: 6,
+        maxZoom: 9,
+        padding: 150,
       }
     );
 
