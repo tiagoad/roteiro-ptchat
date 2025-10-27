@@ -3,13 +3,45 @@ import type { Route } from './+types/api.data';
 import type { sheets_v4, places_v1 } from 'googleapis';
 import { indexToSheetsColumn } from '~/lib/encode';
 
-const CACHE_OUTPUT_SECONDS = 120;
+const CACHE_OUTPUT_SECONDS = 60;
 const CACHE_SHEETS_SECONDS = 60; // 1 minute
 const CACHE_PLACES_LOOKUP_SECONDS = 60 * 60; // 1 day
 
 const PLACE_REGEXP = new RegExp(
   /https:\/\/www.google.com\/maps\/place\/.+\/data=!.+!.+![0-9]+s([0-9A-Za-z-_]+)/
 );
+
+type Place =
+  | {
+      status: 'ok';
+      types: string[];
+      location: {
+        city: string;
+        name: string;
+        metadata: {
+          location: {
+            latitude: number;
+            longitude: number;
+          };
+          displayName: {
+            text: string;
+            languageCode: string;
+          };
+        };
+        url: string;
+        placeId: string;
+      };
+      reviews: Array<{
+        user: string;
+        ranking: number;
+        notes: string;
+      }>;
+    }
+  | {
+      status: 'error';
+      error: string;
+      meta: any;
+    };
 
 async function uncachedLoader({ context }: Route.LoaderArgs) {
   const sheetId = '1jGBpghcuheyLSHMmsIEGt106p-SerbnBbOkZlOpW3lI';
@@ -93,87 +125,121 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
 
   const header = table.columnProperties!;
 
-  const rows = (
-    await Promise.all(
-      rowData.slice(2).map(async (row) => {
-        const data = Object.fromEntries(
-          row.values!.map((v, colIdx) => {
-            const props = header![colIdx]!;
-            return [
-              props.columnName!,
-              {
-                data: v,
-                props,
-              },
-            ];
-          })
-        ) as {
-          [k in ColumnName]: {
-            data: sheets_v4.Schema$CellData;
-            props: sheets_v4.Schema$TableColumnProperties;
-          };
+  const rows = await Promise.all(
+    rowData.slice(2).map<Promise<Place>>(async (row, i) => {
+      const data = Object.fromEntries(
+        row.values!.map((v, colIdx) => {
+          const props = header![colIdx]!;
+          return [
+            props.columnName!,
+            {
+              data: v,
+              props,
+            },
+          ];
+        })
+      ) as {
+        [k in ColumnName]: {
+          data: sheets_v4.Schema$CellData;
+          props: sheets_v4.Schema$TableColumnProperties;
         };
+      };
 
-        const mapsUrl =
-          data['Google Maps'].data.chipRuns?.[0]?.chip?.richLinkProperties
-            ?.uri!;
+      const mapsUrl =
+        data['Google Maps'].data.chipRuns?.[0]?.chip?.richLinkProperties?.uri!;
 
-        if (!mapsUrl) {
-          return undefined;
-        }
-
-        const placeId = PLACE_REGEXP.exec(mapsUrl)![1];
-        const placesURL = new URL(
-          `https://places.googleapis.com/v1/places/${placeId}`
-        );
-        placesURL.searchParams.set(
-          'key',
-          context.cloudflare.env.GOOGLE_API_KEY
-        );
-        placesURL.searchParams.set('fields', 'location,displayName');
-        const placeRes = await fetch(placesURL, {
-          cf: {
-            cacheTtl: CACHE_PLACES_LOOKUP_SECONDS,
-            cacheEverything: true,
+      if (!mapsUrl) {
+        console.warn(`No maps URL in row ${i}`);
+        return {
+          status: 'error' as const,
+          error: `No maps URL in row ${i}`,
+          meta: {
+            rowData: data,
           },
-        });
+        } satisfies Place;
+      }
 
-        if (!placeRes.ok) {
-          console.warn(
-            `Failed to get place information for ${mapsUrl} (placeId=${placeId})`
-          );
-          return undefined;
-          //throw new Response('Failed to read place metadata', { status: 400 });
-        }
+      const placeMatch = PLACE_REGEXP.exec(mapsUrl);
+      if (!placeMatch) {
+        console.warn(`No maps place ID in url ${mapsUrl}`);
+        return {
+          status: 'error' as const,
+          error: `No maps place ID in url ${mapsUrl}`,
+          meta: {
+            rowData: data,
+          },
+        } satisfies Place;
+      }
 
-        const placeMetadata =
-          await placeRes.json<places_v1.Schema$GoogleMapsPlacesV1Place>();
+      const placeId = PLACE_REGEXP.exec(mapsUrl)![1];
+      const placesURL = new URL(
+        `https://places.googleapis.com/v1/places/${placeId}`
+      );
+      placesURL.searchParams.set('key', context.cloudflare.env.GOOGLE_API_KEY);
+      placesURL.searchParams.set('fields', 'location,displayName');
+      const placeRes = await fetch(placesURL, {
+        cf: {
+          cacheTtl: CACHE_PLACES_LOOKUP_SECONDS,
+          cacheEverything: true,
+        },
+      });
+
+      if (!placeRes.ok) {
+        console.warn(
+          `Failed to get place information for ${mapsUrl} (placeId=${placeId})`
+        );
 
         return {
-          types: data.Tipo.data.formattedValue?.split(', ') || [],
-          location: {
-            city: data.Cidade.data.formattedValue!,
-            name: data['Google Maps'].data.formattedValue!,
-            metadata: placeMetadata,
-            url: mapsUrl,
+          status: 'error' as const,
+          error: `No place information for ${mapsUrl}`,
+          meta: {
             placeId: placeId,
+            rowData: data,
           },
-          reviews: [
-            {
-              user: data.User.data.formattedValue!,
-              ranking: data.Rank.data.effectiveValue!.numberValue,
-              notes: data.Notas.data.formattedValue,
-            },
-          ],
+        } satisfies Place;
+        //throw new Response('Failed to read place metadata', { status: 400 });
+      }
+
+      const placeMetadata = await placeRes.json<{
+        location: {
+          latitude: number;
+          longitude: number;
         };
-      })
-    )
-  ).filter((v) => !!v);
+        displayName: {
+          text: string;
+          languageCode: string;
+        };
+      }>();
+
+      return {
+        status: 'ok' as const,
+        types: data.Tipo.data.formattedValue?.split(', ') || [],
+        location: {
+          city: data.Cidade.data.formattedValue!,
+          name: data['Google Maps'].data.formattedValue!,
+          metadata: placeMetadata,
+          url: mapsUrl,
+          placeId: placeId,
+        },
+        reviews: [
+          {
+            user: data.User.data.formattedValue!,
+            ranking: data.Rank.data.effectiveValue!.numberValue || 0,
+            notes: data.Notas.data.formattedValue || '',
+          },
+        ],
+      } satisfies Place;
+    })
+  );
 
   const rowIndex = new Map<string, (typeof rows)[number]>();
   for (const row of rows) {
-    const existing = rowIndex.get(row.location.placeId);
-    if (existing !== undefined) {
+    if (row.status === 'error') {
+      continue;
+    }
+
+    const existing = rowIndex.get(row.location!.placeId);
+    if (existing !== undefined && existing.status !== 'error') {
       existing.reviews.push(row.reviews[0]);
       for (const typ of row.types) {
         if (existing.types.indexOf(typ) === -1) {
@@ -186,13 +252,19 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
   }
   const mergedRows = Array.from(rowIndex.values());
 
-  return { rows: mergedRows, placeTypes };
+  const errorRows = rows.filter((r) => r.status === 'error');
+
+  return { errorRows, rows: mergedRows, placeTypes };
 }
 
 export async function loader(props: Route.LoaderArgs) {
-  const existing = CACHE_OUTPUT_SECONDS
+  const url = new URL(props.request.url);
+  const force = url.searchParams.has('force');
+
+  const existing = !force
     ? await props.context.cloudflare.env.KV.get('sheets-data')
     : null;
+
   if (existing != null) {
     return JSON.parse(existing) as Awaited<ReturnType<typeof uncachedLoader>>;
   } else {

@@ -200,28 +200,37 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       const el = document.createElement('div');
       el.className = classes.marker;
+      el.textContent = row.reviews.length === 1 ? '' : `${row.reviews.length}`;
 
-      const gradientColors = row.types.flatMap((typeName, i) => {
-        const typ = placeTypes[typeName];
-        const pctStep = 100 / row.types.length;
+      const gradientSteps = (() => {
+        const BORDER_COLOR = 'white';
+        const BORDER_PCT = 4;
 
-        const pctStart = pctStep * i;
-        const pctEnd = pctStep * (i + 1);
+        const count = row.types.length;
+        const stepColorPct = (100 - BORDER_PCT * (count - 1)) / count;
 
-        if (i < row.types.length - 1) {
-          const borderPct = 10;
-          return [
-            `${typ.color} ${pctStart}%`,
-            `${typ.color} ${pctEnd - borderPct}%`,
-            `black ${pctEnd - borderPct}%`,
-            `black ${pctEnd}%`,
-          ];
-        } else {
-          return [`${typ.color} ${pctStart}%`, `${typ.color} ${pctEnd}%`];
+        console.log({ count, stepColorPct });
+
+        const steps = [];
+        let curr = 0;
+        for (let i = 0; i < count; i++) {
+          const color = placeTypes[row.types[i]].color;
+
+          steps.push(`${color} ${curr}%`);
+          curr += stepColorPct;
+          steps.push(`${color} ${curr}%`);
+
+          if (i < count - 1) {
+            steps.push(`${BORDER_COLOR} ${curr}%`);
+            curr += BORDER_PCT;
+            steps.push(`${BORDER_COLOR} ${curr}%`);
+          }
         }
-      });
 
-      const gradient = `linear-gradient(to right, ${gradientColors.join(', ')})`;
+        return steps;
+      })();
+
+      const gradient = `linear-gradient(to right, ${gradientSteps.join(', ')})`;
 
       el.style.background = gradient;
 
