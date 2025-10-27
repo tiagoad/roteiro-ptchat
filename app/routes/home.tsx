@@ -159,8 +159,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     new Set(Object.keys(placeTypes))
   );
 
-  const markers = useMemo(() => {
-    if (typeof document === 'undefined') return;
+  const { markers, bounds } = useMemo(() => {
+    if (typeof document === 'undefined') return {};
 
     let min = {
       lat: Number.POSITIVE_INFINITY,
@@ -171,7 +171,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       lng: Number.NEGATIVE_INFINITY,
     };
 
-    return data.table.rows.map((row) => {
+    const markers = data.table.rows.map((row) => {
       const { latitude, longitude } = row.location.metadata.location!;
       min.lat = Math.min(min.lat, latitude!);
       min.lng = Math.min(min.lng, longitude!);
@@ -238,10 +238,18 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         types: new Set(row.types),
       };
     });
+
+    return {
+      markers,
+      bounds: {
+        min,
+        max,
+      },
+    };
   }, []);
 
   useEffect(() => {
-    if (mapDivRef.current === null) return;
+    if (mapDivRef.current === null || !bounds) return;
 
     const map = new maplibregl.Map({
       style: 'https://tiles.openfreemap.org/styles/positron',
@@ -252,11 +260,24 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
     mapRef.current = map;
 
+    map.fitBounds(
+      [
+        [bounds.min.lng, bounds.min.lat],
+        [bounds.max.lng, bounds.max.lat],
+      ],
+
+      {
+        animate: false,
+
+        maxZoom: 6,
+      }
+    );
+
     return () => {
       // cleanup
       map.remove();
     };
-  }, [mapDivRef]);
+  }, [mapDivRef, bounds]);
 
   useEffect(() => {
     if (!markers || !mapRef.current) return;
