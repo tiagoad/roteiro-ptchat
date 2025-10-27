@@ -98,7 +98,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     if (mapDivRef.current === null) return;
 
     const map = new maplibregl.Map({
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: 'https://tiles.openfreemap.org/styles/positron',
       //center: [13.388, 52.517],
       zoom: 1,
       container: mapDivRef.current,
