@@ -64,7 +64,7 @@ function Filters({
   return (
     <div className={classes.filters}>
       {filters.map(({ label, color }) => (
-        <div className={classes.filter}>
+        <div className={classes.filter} key={label}>
           <span
             className={classes.filterColor}
             style={{ backgroundColor: color }}
