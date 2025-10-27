@@ -68,6 +68,14 @@ body,
         }
     }
 
+    :global(.stars) {
+        font-size: 1.3em;
+
+        :global(.dimmed) {
+            opacity: 0.4;
+        }
+    }
+
     hr {
         margin: .5em 0;
     }

@@ -223,8 +223,26 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 (r) => `
                 <hr />
                 <div class="review">
-                <div class="user">@${DOMPurify.sanitize(r.user)} 
-                    <span class="stars">(${r.ranking ? DOMPurify.sanitize(r.ranking.toString()) : 'unranked'}/5)</span>
+                <div class="user">
+                    ${DOMPurify.sanitize(r.user)}
+                    <span class="stars">
+                        ${Array(5)
+                          .fill(undefined)
+                          .map(
+                            (_, i) =>
+                              `<span class="star ${i < r.ranking! ? 'normal' : 'dimmed'}">★</span>`
+                          )
+                          .join('')}
+                        ${
+                          !r.ranking
+                            ? 'Not ranked'
+                            : `${Array(5)
+                                .map((_, i) => {
+                                  return <span>STAR</span>;
+                                })
+                                .join('')}`
+                        }
+                    </span>
                 </div>
                 <div class="notes">${DOMPurify.sanitize(r.notes!)}</div>
                 </div>
@@ -267,8 +285,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
     mapRef.current = map;
 
-    /**/
-
     return () => {
       // cleanup
       map.remove();
@@ -285,7 +301,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       ],
 
       {
-        animate: false,
+        animate: true,
+        duration: 200,
         maxZoom: 9,
         padding: 150,
       }
