@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      colorjs.io:
-        specifier: 0.6.0-beta.1
-        version: 0.6.0-beta.1
       dompurify:
         specifier: ^3.3.0
         version: 3.3.0
@@ -1114,9 +1111,6 @@ packages:
   color@4.2.3:
     resolution: {integrity: sha512-1rXeuUUiGGrykh+CeBdu5Ie7OJwinCgQY0bc7GCRxy5xVHy+moaqkpL/jqQq0MtQOeYcrqEz4abc5f0KtU7W4A==}
     engines: {node: '>=12.5.0'}
-
-  colorjs.io@0.6.0-beta.1:
-    resolution: {integrity: sha512-Qrn2bIiQH8wP8hwjcA3yh7ZJ3RBpCVTro1GCXynLmaAHNXLz9lf9ju6bstRrtgpqYmKRir3YsyLqMu5ZucSRBQ==}
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
@@ -2863,8 +2857,6 @@ snapshots:
     dependencies:
       color-convert: 2.0.1
       color-string: 1.9.1
-
-  colorjs.io@0.6.0-beta.1: {}
 
   convert-source-map@2.0.0: {}
 

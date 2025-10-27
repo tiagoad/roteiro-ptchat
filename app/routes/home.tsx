@@ -7,9 +7,21 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { loader as apiLoader } from './api.data';
 import classes from './home.module.css';
 import { useLoaderData } from 'react-router';
-import Color from 'colorjs.io';
 
 import DOMPurify from 'dompurify';
+
+const COLOR_SCALE = [
+  '#1f77b4',
+  '#ff7f0e',
+  '#2ca02c',
+  '#d62728',
+  '#9467bd',
+  '#8c564b',
+  '#e377c2',
+  '#7f7f7f',
+  '#bcbd22',
+  '#17becf',
+];
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: 'Roteiro PTChat' }];
@@ -58,11 +70,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
   const placeTypes = Object.fromEntries(
     data.table.placeTypes.map((name, i) => {
-      const color = new Color('OKLCH', [
-        0.6,
-        0.35,
-        320 * (i / (data.table.placeTypes.length - 1)),
-      ]).toString({ format: 'hex' });
+      const color = COLOR_SCALE[i];
 
       return [
         name,
