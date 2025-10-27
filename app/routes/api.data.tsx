@@ -133,16 +133,37 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
             name: data['Google Maps'].data.formattedValue!,
             metadata: placeMetadata,
             url: mapsUrl,
+            placeId: placeId,
           },
-          user: data.User.data.formattedValue!,
-          ranking: data.Rank.data.effectiveValue!.numberValue,
-          notes: data.Notas.data.formattedValue,
+          reviews: [
+            {
+              user: data.User.data.formattedValue!,
+              ranking: data.Rank.data.effectiveValue!.numberValue,
+              notes: data.Notas.data.formattedValue,
+            },
+          ],
         };
       })
     )
   ).filter((v) => !!v);
 
-  return { rows, placeTypes };
+  const rowIndex = new Map<string, (typeof rows)[number]>();
+  for (const row of rows) {
+    const existing = rowIndex.get(row.location.placeId);
+    if (existing !== undefined) {
+      existing.reviews.push(row.reviews[0]);
+      for (const typ of row.types) {
+        if (existing.types.indexOf(typ) === -1) {
+          existing.types.push(typ);
+        }
+      }
+    } else {
+      rowIndex.set(row.location.placeId, row);
+    }
+  }
+  const mergedRows = Array.from(rowIndex.values());
+
+  return { rows: mergedRows, placeTypes };
 }
 
 export async function loader(props: Route.LoaderArgs) {

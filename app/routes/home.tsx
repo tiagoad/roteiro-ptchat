@@ -126,9 +126,20 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
         `<div class="${classes.popup}">
             <div class="name"><a href="${row.location.url!}">${DOMPurify.sanitize(row.location.name)}</a></div>
-            <div class="user">${DOMPurify.sanitize(row.user)}</div>
-            <hr />
-            <div class="notes}">${DOMPurify.sanitize(row.notes!)}</div>
+
+            ${row.reviews
+              .map(
+                (r) => `
+                <hr />
+                <div class="review">
+                <div class="user">@${DOMPurify.sanitize(r.user)} 
+                    <span class="stars">(${r.ranking ? DOMPurify.sanitize(r.ranking.toString()) : 'unranked'}/5)</span>
+                </div>
+                <div class="notes">${DOMPurify.sanitize(r.notes!)}</div>
+                </div>
+            `
+              )
+              .join('\n')}
         </div>`
       );
 

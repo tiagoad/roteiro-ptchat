@@ -44,6 +44,12 @@ body,
         color: darkblue;
         text-decoration: underline;
     }
+    
+    > :global(.review) {
+        > :global(.notes) {
+            font-style: italic;
+        }
+    }
 
     hr {
         margin: .5em 0;
