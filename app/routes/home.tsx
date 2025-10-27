@@ -130,6 +130,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
         `<div class="${classes.popup}">
             <div class="name"><a href="${row.location.url!}">${DOMPurify.sanitize(row.location.name)}</a></div>
+            <hr/>
+            <div class="types">${row.types.map((typ) => `<div style="background-color: ${placeTypes[typ].color}">${typ}</div>`).join('')}</div>
 
             ${row.reviews
               .map(

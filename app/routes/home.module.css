@@ -51,6 +51,18 @@ body,
         }
     }
 
+    > :global(.types) {
+        display: flex;
+        flex-flow: row;
+        column-gap: .25em;
+
+        > div {
+            border-radius: .5em;
+            color: white;
+            padding: 0 .5em;
+        }
+    }
+
     hr {
         margin: .5em 0;
     }
