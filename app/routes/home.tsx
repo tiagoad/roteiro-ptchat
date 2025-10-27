@@ -9,6 +9,7 @@ import classes from './home.module.css';
 import { useFetcher, useLoaderData } from 'react-router';
 
 import DOMPurify from 'dompurify';
+import Spinner from '~/components/spinner';
 
 const COLOR_SCALE = [
   '#1f77b4',
@@ -49,6 +50,7 @@ function Filters({
   filters,
   state,
   onChange,
+  isLoading,
 }: {
   filters: Array<{
     label: string;
@@ -56,6 +58,7 @@ function Filters({
   }>;
   state: FilterState;
   onChange: (state: FilterState) => void;
+  isLoading: boolean;
 }) {
   const toggleFilter = useCallback(
     (typ: string) => {
@@ -81,50 +84,60 @@ function Filters({
 
   return (
     <div className={classes.filters}>
-      <div
-        className={classes.filter}
-        style={{ opacity: state.size === filters.length ? 1.0 : 0.5 }}
-        onClick={() => {
-          onChange(
-            state.size === filters.length
-              ? new Set([])
-              : new Set(filters.map((f) => f.label))
-          );
-        }}
-      >
+      {isLoading ? (
         <span
-          className={classes.filterColor}
-          style={{
-            backgroundColor: 'white',
-          }}
-        />
-        <span>Todos</span>
-      </div>
-
-      <hr />
-
-      {filters.map(({ label, color }) => {
-        const isSelected = state.has(label);
-
-        return (
+          style={{ display: 'flex', alignItems: 'center', columnGap: '.5em' }}
+        >
+          <Spinner /> <span>Loading...</span>
+        </span>
+      ) : (
+        <>
           <div
             className={classes.filter}
-            style={{ opacity: isSelected ? 1.0 : 0.5 }}
-            key={label}
+            style={{ opacity: state.size === filters.length ? 1.0 : 0.5 }}
             onClick={() => {
-              toggleFilter(label);
+              onChange(
+                state.size === filters.length
+                  ? new Set([])
+                  : new Set(filters.map((f) => f.label))
+              );
             }}
           >
             <span
               className={classes.filterColor}
               style={{
-                backgroundColor: color,
+                backgroundColor: 'white',
               }}
             />
-            <span>{label}</span>
+            <span>Todos</span>
           </div>
-        );
-      })}
+
+          <hr />
+
+          {filters.map(({ label, color }) => {
+            const isSelected = state.has(label);
+
+            return (
+              <div
+                className={classes.filter}
+                style={{ opacity: isSelected ? 1.0 : 0.5 }}
+                key={label}
+                onClick={() => {
+                  toggleFilter(label);
+                }}
+              >
+                <span
+                  className={classes.filterColor}
+                  style={{
+                    backgroundColor: color,
+                  }}
+                />
+                <span>{label}</span>
+              </div>
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }
@@ -141,8 +154,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     fetcher.load('/api/data');
   }, []);
 
-  const isLoading = fetcher.state !== 'idle';
   const data = fetcher.data;
+  const isLoading = fetcher.state !== 'idle' || !data;
 
   const placeTypes = useMemo(() => {
     if (!data || isLoading) return undefined;
@@ -301,7 +314,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       ],
 
       {
-        animate: true,
+        animate: false,
         duration: 200,
         maxZoom: 9,
         padding: 150,
@@ -325,16 +338,15 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className={classes.wrapper}>
-      {placeTypes && (
-        <Filters
-          filters={Object.values(placeTypes).map((typ) => ({
-            label: typ.name,
-            color: typ.color,
-          }))}
-          state={filterState}
-          onChange={setFilterState}
-        />
-      )}
+      <Filters
+        filters={Object.values(placeTypes || []).map((typ) => ({
+          label: typ.name,
+          color: typ.color,
+        }))}
+        state={filterState}
+        onChange={setFilterState}
+        isLoading={isLoading}
+      />
       <div className={classes.map} ref={mapDivRef}></div>
     </div>
   );
