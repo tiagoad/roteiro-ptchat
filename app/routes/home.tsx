@@ -4,9 +4,9 @@ import type { Route } from './+types/home';
 import maplibregl, { Map, Marker } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-import { loader as apiLoader } from './api.data';
+import type { loader as apiLoader } from './api.data';
 import classes from './home.module.css';
-import { useLoaderData } from 'react-router';
+import { useFetcher, useLoaderData } from 'react-router';
 
 import DOMPurify from 'dompurify';
 
@@ -42,16 +42,6 @@ export function meta({}: Route.MetaArgs) {
 export const links = (() => [
   { rel: 'icon', href: '/favicon.png' },
 ]) satisfies Route.LinksFunction;
-
-export async function loader({ context, params, request }: Route.LoaderArgs) {
-  return {
-    table: await apiLoader({
-      context,
-      params,
-      request,
-    }),
-  };
-}
 
 type FilterState = Set<string>;
 
@@ -143,28 +133,41 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map>(undefined);
 
-  const data = useLoaderData<typeof loader>();
+  const [filterState, setFilterState] = useState<FilterState>(new Set());
 
-  const placeTypes = Object.fromEntries(
-    data.table.placeTypes.map((name, i) => {
-      const color = COLOR_SCALE[i];
+  const fetcher = useFetcher<Awaited<ReturnType<typeof apiLoader>>>();
 
-      return [
-        name,
-        {
+  useEffect(() => {
+    fetcher.load('/api/data');
+  }, []);
+
+  const isLoading = fetcher.state !== 'idle';
+  const data = fetcher.data;
+
+  const placeTypes = useMemo(() => {
+    if (!data || isLoading) return undefined;
+
+    const newTypes = Object.fromEntries(
+      data.placeTypes?.map((name, i) => {
+        const color = COLOR_SCALE[i];
+
+        return [
           name,
-          color,
-        },
-      ];
-    })
-  );
+          {
+            name,
+            color,
+          },
+        ];
+      })
+    );
 
-  const [filterState, setFilterState] = useState<FilterState>(
-    new Set(Object.keys(placeTypes))
-  );
+    setFilterState(new Set(Object.keys(newTypes)));
+
+    return newTypes;
+  }, [data]);
 
   const { markers, bounds } = useMemo(() => {
-    if (typeof document === 'undefined') return {};
+    if (!data || !placeTypes || typeof document === 'undefined') return {};
 
     let min = {
       lat: Number.POSITIVE_INFINITY,
@@ -175,7 +178,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       lng: Number.NEGATIVE_INFINITY,
     };
 
-    const markers = data.table.rows.map((row) => {
+    const markers = data.rows.map((row) => {
       const { latitude, longitude } = row.location.metadata.location!;
       min.lat = Math.min(min.lat, latitude!);
       min.lng = Math.min(min.lng, longitude!);
@@ -250,21 +253,32 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         max,
       },
     };
-  }, []);
+  }, [data]);
 
   useEffect(() => {
-    if (mapDivRef.current === null || !bounds) return;
+    if (mapDivRef.current === null) return;
 
     const map = new maplibregl.Map({
       style: 'https://tiles.openfreemap.org/styles/positron',
-      //center: [13.388, 52.517],
+      center: [13.388, 52.517],
       zoom: 1,
       container: mapDivRef.current,
     });
 
     mapRef.current = map;
 
-    map.fitBounds(
+    /**/
+
+    return () => {
+      // cleanup
+      map.remove();
+    };
+  }, [mapDivRef]);
+
+  useEffect(() => {
+    if (!mapRef.current || !bounds) return;
+
+    mapRef.current.fitBounds(
       [
         [bounds.min.lng, bounds.min.lat],
         [bounds.max.lng, bounds.max.lat],
@@ -276,12 +290,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         padding: 150,
       }
     );
-
-    return () => {
-      // cleanup
-      map.remove();
-    };
-  }, [mapDivRef, bounds]);
+  }, [bounds]);
 
   useEffect(() => {
     if (!markers || !mapRef.current) return;
@@ -299,14 +308,16 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className={classes.wrapper}>
-      <Filters
-        filters={Object.values(placeTypes).map((typ) => ({
-          label: typ.name,
-          color: typ.color,
-        }))}
-        state={filterState}
-        onChange={setFilterState}
-      />
+      {placeTypes && (
+        <Filters
+          filters={Object.values(placeTypes).map((typ) => ({
+            label: typ.name,
+            color: typ.color,
+          }))}
+          state={filterState}
+          onChange={setFilterState}
+        />
+      )}
       <div className={classes.map} ref={mapDivRef}></div>
     </div>
   );

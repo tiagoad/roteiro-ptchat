@@ -3,7 +3,7 @@ import type { Route } from './+types/api.data';
 import type { sheets_v4, places_v1 } from 'googleapis';
 import { indexToSheetsColumn } from '~/lib/encode';
 
-const CACHE_SECONDS = import.meta.env.DEV ? undefined : 60;
+const CACHE_SECONDS = 120;
 const PLACE_REGEXP = new RegExp(
   /https:\/\/www.google.com\/maps\/place\/.+\/data=!.+!.+![0-9]+s([0-9A-Za-z-_]+)/
 );
@@ -21,7 +21,9 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
     apiURL.searchParams.set('key', context.cloudflare.env.GOOGLE_API_KEY);
     const res = await fetch(apiURL);
     if (!res.ok) {
-      throw new Response('Failed to read sheet metadata', { status: 400 });
+      throw new Response(`Failed to read sheet metadata: ${await res.text()}`, {
+        status: 400,
+      });
     }
     const data = await res.json<sheets_v4.Schema$Spreadsheet>();
     const table = data.sheets?.[0]?.tables?.[0];
