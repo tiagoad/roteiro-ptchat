@@ -9,7 +9,12 @@ import classes from './home.module.css';
 import { useFetcher, useLoaderData } from 'react-router';
 
 import DOMPurify from 'dompurify';
-import Spinner from '~/components/spinner';
+import {
+  FilterSidebar,
+  useFilters,
+  type FilterOptions,
+  type FilterState,
+} from '~/components/filter-sidebar';
 
 const COLOR_SCALE = [
   '#1f77b4',
@@ -44,109 +49,11 @@ export const links = (() => [
   { rel: 'icon', href: '/favicon.png' },
 ]) satisfies Route.LinksFunction;
 
-type FilterState = Set<string>;
-
-function Filters({
-  filters,
-  state,
-  onChange,
-  isLoading,
-}: {
-  filters: Array<{
-    label: string;
-    color: string;
-  }>;
-  state: FilterState;
-  onChange: (state: FilterState) => void;
-  isLoading: boolean;
-}) {
-  const toggleFilter = useCallback(
-    (typ: string) => {
-      let newState = new Set(state);
-
-      if (state.size === filters.length) {
-        newState.clear();
-        newState.add(typ);
-      } else if (state.has(typ)) {
-        newState.delete(typ);
-      } else {
-        newState.add(typ);
-      }
-
-      if (newState.size === 0) {
-        newState = new Set(filters.map((f) => f.label));
-      }
-
-      onChange(newState);
-    },
-    [filters, state]
-  );
-
-  return (
-    <div className={classes.filters}>
-      {isLoading ? (
-        <span
-          style={{ display: 'flex', alignItems: 'center', columnGap: '.5em' }}
-        >
-          <Spinner /> <span>Loading...</span>
-        </span>
-      ) : (
-        <>
-          <div
-            className={classes.filter}
-            style={{ opacity: state.size === filters.length ? 1.0 : 0.5 }}
-            onClick={() => {
-              onChange(
-                state.size === filters.length
-                  ? new Set([])
-                  : new Set(filters.map((f) => f.label))
-              );
-            }}
-          >
-            <span
-              className={classes.filterColor}
-              style={{
-                backgroundColor: 'white',
-              }}
-            />
-            <span>Todos</span>
-          </div>
-
-          <hr />
-
-          {filters.map(({ label, color }) => {
-            const isSelected = state.has(label);
-
-            return (
-              <div
-                className={classes.filter}
-                style={{ opacity: isSelected ? 1.0 : 0.5 }}
-                key={label}
-                onClick={() => {
-                  toggleFilter(label);
-                }}
-              >
-                <span
-                  className={classes.filterColor}
-                  style={{
-                    backgroundColor: color,
-                  }}
-                />
-                <span>{label}</span>
-              </div>
-            );
-          })}
-        </>
-      )}
-    </div>
-  );
-}
+const N_STARS = 5;
 
 export default function Home({ loaderData }: Route.ComponentProps) {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map>(undefined);
-
-  const [filterState, setFilterState] = useState<FilterState>(new Set());
 
   const fetcher = useFetcher<Awaited<ReturnType<typeof apiLoader>>>();
 
@@ -157,30 +64,47 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const data = fetcher.data;
   const isLoading = fetcher.state !== 'idle' || !data;
 
-  const placeTypes = useMemo(() => {
-    if (!data || isLoading) return undefined;
+  const { filterOptions, typeColors } = useMemo(() => {
+    if (data) {
+      const filterOptions = {
+        types: data.uniques.types.map((name, i) => ({
+          value: name,
+          color: COLOR_SCALE[i % COLOR_SCALE.length],
+        })),
+        users: data.uniques.users.map((value) => ({ value })),
+        cities: data.uniques.cities.map((value) => ({ value })),
+        ratings: {
+          maxStars: N_STARS,
+        },
+      } satisfies FilterOptions;
 
-    const newTypes = Object.fromEntries(
-      data.placeTypes?.map((name, i) => {
-        const color = COLOR_SCALE[i];
+      const typeColors = Object.fromEntries(
+        filterOptions.types.map((t) => [t.value, t.color])
+      );
 
-        return [
-          name,
-          {
-            name,
-            color,
-          },
-        ];
-      })
-    );
-
-    setFilterState(new Set(Object.keys(newTypes)));
-
-    return newTypes;
+      return {
+        filterOptions,
+        typeColors,
+      };
+    } else {
+      return {};
+    }
   }, [data]);
 
+  const {
+    state: filterState,
+    toggle: filterToggle,
+    reset: filterReset,
+  } = useFilters(filterOptions);
+
   const { markers, bounds } = useMemo(() => {
-    if (!data || !placeTypes || typeof document === 'undefined') return {};
+    if (
+      !data ||
+      !filterOptions ||
+      !typeColors ||
+      typeof document === 'undefined'
+    )
+      return {};
 
     let min = {
       lat: Number.POSITIVE_INFINITY,
@@ -191,8 +115,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       lng: Number.NEGATIVE_INFINITY,
     };
 
-    const markers = data.rows.map((row) => {
-      const { latitude, longitude } = row.location.metadata.location!;
+    const markers = data.places.map((place) => {
+      const { latitude, longitude } = place.location.metadata.location!;
       min.lat = Math.min(min.lat, latitude!);
       min.lng = Math.min(min.lng, longitude!);
       max.lat = Math.max(max.lat, latitude!);
@@ -200,13 +124,14 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       const el = document.createElement('div');
       el.className = classes.marker;
-      el.textContent = row.reviews.length === 1 ? '' : `${row.reviews.length}`;
+      el.textContent =
+        place.reviews.length === 1 ? '' : `${place.reviews.length}`;
 
       const gradientSteps = (() => {
         const BORDER_COLOR = 'white';
         const BORDER_PCT = 4;
 
-        const count = row.types.length;
+        const count = place.types.length;
         const stepColorPct = (100 - BORDER_PCT * (count - 1)) / count;
 
         console.log({ count, stepColorPct });
@@ -214,7 +139,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         const steps = [];
         let curr = 0;
         for (let i = 0; i < count; i++) {
-          const color = placeTypes[row.types[i]].color;
+          const placeType = place.types[i];
+          const color = typeColors[placeType];
 
           steps.push(`${color} ${curr}%`);
           curr += stepColorPct;
@@ -236,11 +162,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
         `<div class="${classes.popup}">
-            <div class="name"><a target="_blank" href="${row.location.url!}">${DOMPurify.sanitize(row.location.name)}</a></div>
+            <div class="name"><a target="_blank" href="${place.location.url!}">${DOMPurify.sanitize(place.location.name)}</a></div>
             <hr/>
-            <div class="types">${row.types.map((typ) => `<div style="background-color: ${placeTypes[typ].color}">${typ}</div>`).join('')}</div>
+            <div class="types">${place.types.map((typ) => `<div style="background-color: ${typeColors[typ]}">${typ}</div>`).join('')}</div>
 
-            ${row.reviews
+            ${place.reviews
               .map(
                 (r) => `
                 <hr />
@@ -282,7 +208,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       return {
         marker,
-        types: new Set(row.types),
+        sets: {
+          types: new Set(place.types),
+          users: new Set(place.reviews.map((r) => r.user)),
+          rankings: new Set(place.reviews.map((r) => r.ranking)),
+        },
       };
     });
 
@@ -303,13 +233,18 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       center: [13.388, 52.517],
       zoom: 1,
       container: mapDivRef.current,
-      attributionControl: {
+      attributionControl: false,
+    });
+
+    map.addControl(
+      new maplibregl.AttributionControl({
         compact: true,
         customAttribution: [
           '<a target="_blank" href="https://github.com/tiagoad/roteiro-ptchat">tiagoad@github/roteiro-ptchat</a>',
         ],
-      },
-    });
+      }),
+      'top-right'
+    );
 
     mapRef.current = map;
 
@@ -338,10 +273,13 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   }, [bounds]);
 
   useEffect(() => {
-    if (!markers || !mapRef.current) return;
+    if (!markers || !filterState || !mapRef.current) return;
 
-    for (const { marker, types } of markers) {
-      const isVisible = types.intersection(filterState).size > 0;
+    for (const { marker, sets } of markers) {
+      const isVisible =
+        sets.rankings.intersection(filterState.ratings).size > 0 &&
+        sets.users.intersection(filterState.users).size > 0 &&
+        sets.types.intersection(filterState.types).size > 0;
 
       if (isVisible && !marker._map) {
         marker.addTo(mapRef.current);
@@ -353,14 +291,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className={classes.wrapper}>
-      <Filters
-        filters={Object.values(placeTypes || []).map((typ) => ({
-          label: typ.name,
-          color: typ.color,
-        }))}
+      <FilterSidebar
+        options={filterOptions}
         state={filterState}
-        onChange={setFilterState}
+        toggle={filterToggle}
         isLoading={isLoading}
+        reset={filterReset}
       />
       <div className={classes.map} ref={mapDivRef}></div>
     </div>

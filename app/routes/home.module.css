@@ -20,36 +20,6 @@ body,
     box-shadow: 0 0 3px 0 rgba(0,0,0,0.4);
 }
 
-.filters {
-    position: fixed;
-    left: 1em;
-    bottom: 1em;
-    padding: 1em;
-    background: white;
-    border-radius: .5em;
-    border: 1px solid black;
-    font-size: .8em;
-    z-index: 1;
-
-    hr {
-        margin: .5em 0;
-    }
-}
-
-.filter {
-    display: flex;
-    flex-flow: row;
-    align-items: center;
-    column-gap: .5em;
-    cursor: pointer;
-}
-
-.filterColor {
-    width: 1em;
-    height: 1em;
-    border: 1px solid black;
-}
-
 .popup {
     > :global(.name) {
         font-weight: bold;

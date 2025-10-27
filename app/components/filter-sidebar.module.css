@@ -1,0 +1,115 @@
+.wrapper {
+    position: fixed;
+    left: 1em;
+    bottom: .5em;
+    padding: .5em;
+    background: white;
+    border-radius: .5em;
+    border: 1px solid black;
+    font-size: .8em;
+    z-index: 1;
+    width: 10em;
+
+    hr {
+        margin: .5em 0;
+    }
+}
+
+.tabs {
+    display: flex;
+    flex-flow: row;
+    column-gap: .5rem;
+    justify-content: center;
+    
+    > svg {
+        cursor: pointer;
+        height: 1.5rem;
+        width: 1.5rem;
+        padding: 2px;
+        color: #333;
+        background: #f7f7f7;
+        border: 1px solid #333;
+        border-radius: 4px;
+    }
+
+    > svg:hover {
+        color: #000;
+        border-width: 2px;
+    }
+    
+    > svg.active {
+        color: #000;
+        background: #fffd89;
+    }
+}
+
+.filters {
+    padding: 0 2px;
+    margin-bottom: .5rem;
+}
+
+.cleanFilters {
+    margin-top: .5em;
+    border: 1px solid black;
+    text-align: center;
+    width: 100%;
+}
+
+.typeFilter {
+    display: flex;
+    flex-flow: row;
+    align-items: center;
+    column-gap: .5em;
+    cursor: pointer;
+
+    opacity: 0.5;
+}
+
+.typeFilter.selected {
+    opacity: 1.0;
+}
+
+.filterIcon {
+    width: 1em;
+    height: 1em;
+    border: 1px solid black;
+}
+
+.filterIcon.selected {
+    background: #ffc800;
+}
+
+.starFilter {
+    display: flex;
+    justify-content: space-around;
+    cursor: pointer;
+
+    fill: white;
+    
+    > svg {
+        height: 1.3em;
+        width: 1.3em;
+    }
+
+    > svg.filled {
+        fill: #ffc800;
+    }
+
+    opacity: 0.5;
+}
+
+.starFilter.selected {
+    opacity: 1.0;
+}
+
+.userFilter {
+    display: flex;
+    align-items: center;
+    column-gap: .5em;
+    cursor: pointer;
+    opacity: 0.5;
+}
+
+.userFilter.selected {
+    opacity: 1.0;
+}
