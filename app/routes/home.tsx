@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Route } from './+types/home';
 
-import maplibregl, { Marker } from 'maplibre-gl';
+import maplibregl, { Map, Marker } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { loader as apiLoader } from './api.data';
@@ -53,32 +53,93 @@ export async function loader({ context, params, request }: Route.LoaderArgs) {
   };
 }
 
+type FilterState = Set<string>;
+
 function Filters({
   filters,
+  state,
+  onChange,
 }: {
   filters: Array<{
     label: string;
     color: string;
   }>;
+  state: FilterState;
+  onChange: (state: FilterState) => void;
 }) {
+  const toggleFilter = useCallback(
+    (typ: string) => {
+      let newState = new Set(state);
+
+      if (state.size === filters.length) {
+        newState.clear();
+        newState.add(typ);
+      } else if (state.has(typ)) {
+        newState.delete(typ);
+      } else {
+        newState.add(typ);
+      }
+
+      if (newState.size === 0) {
+        newState = new Set(filters.map((f) => f.label));
+      }
+
+      onChange(newState);
+    },
+    [filters, state]
+  );
+
   return (
     <div className={classes.filters}>
-      {filters.map(({ label, color }) => (
-        <div className={classes.filter} key={label}>
-          <span
-            className={classes.filterColor}
-            style={{ backgroundColor: color }}
-          />
-          <span>{label}</span>
-        </div>
-      ))}
+      <div
+        className={classes.filter}
+        onClick={() => {
+          onChange(new Set(filters.map((f) => f.label)));
+        }}
+      >
+        <span
+          className={classes.filterColor}
+          style={{
+            backgroundColor: 'white',
+            opacity: state.size === filters.length ? 1.0 : 0.3,
+          }}
+        />
+        <span>Mostrar Todos</span>
+      </div>
+
+      <hr />
+
+      {filters.map(({ label, color }) => {
+        const isSelected = state.has(label);
+
+        return (
+          <div
+            className={classes.filter}
+            key={label}
+            onClick={() => {
+              toggleFilter(label);
+            }}
+          >
+            <span
+              className={classes.filterColor}
+              style={{
+                backgroundColor: color,
+                opacity: isSelected ? 1.0 : 0.3,
+              }}
+            />
+            <span>{label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const data = useLoaderData<typeof loader>();
   const mapDivRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<Map>(undefined);
+
+  const data = useLoaderData<typeof loader>();
 
   const placeTypes = Object.fromEntries(
     data.table.placeTypes.map((name, i) => {
@@ -94,15 +155,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     })
   );
 
-  useEffect(() => {
-    if (mapDivRef.current === null) return;
+  const [filterState, setFilterState] = useState<FilterState>(
+    new Set(Object.keys(placeTypes))
+  );
 
-    const map = new maplibregl.Map({
-      style: 'https://tiles.openfreemap.org/styles/positron',
-      //center: [13.388, 52.517],
-      zoom: 1,
-      container: mapDivRef.current,
-    });
+  const markers = useMemo(() => {
+    if (typeof document === 'undefined') return;
 
     let min = {
       lat: Number.POSITIVE_INFINITY,
@@ -113,7 +171,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       lng: Number.NEGATIVE_INFINITY,
     };
 
-    for (const row of data.table.rows) {
+    return data.table.rows.map((row) => {
       const { latitude, longitude } = row.location.metadata.location!;
       min.lat = Math.min(min.lat, latitude!);
       min.lng = Math.min(min.lng, longitude!);
@@ -173,26 +231,46 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         element: el,
       })
         .setLngLat([longitude!, latitude!])
-        .setPopup(popup)
-        .addTo(map);
-    }
+        .setPopup(popup);
 
-    map.fitBounds(
-      [
-        [min.lng, min.lat],
-        [max.lng, max.lat],
-      ],
-      {
-        animate: false,
-        maxZoom: 6,
-      }
-    );
+      return {
+        marker,
+        types: new Set(row.types),
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    if (mapDivRef.current === null) return;
+
+    const map = new maplibregl.Map({
+      style: 'https://tiles.openfreemap.org/styles/positron',
+      //center: [13.388, 52.517],
+      zoom: 1,
+      container: mapDivRef.current,
+    });
+
+    mapRef.current = map;
 
     return () => {
       // cleanup
       map.remove();
     };
   }, [mapDivRef]);
+
+  useEffect(() => {
+    if (!markers || !mapRef.current) return;
+
+    for (const { marker, types } of markers) {
+      const isVisible = types.intersection(filterState).size > 0;
+
+      if (isVisible && !marker._map) {
+        marker.addTo(mapRef.current);
+      } else if (!isVisible && marker._map) {
+        marker.remove();
+      }
+    }
+  }, [markers, filterState]);
 
   return (
     <div className={classes.wrapper}>
@@ -201,6 +279,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           label: typ.name,
           color: typ.color,
         }))}
+        state={filterState}
+        onChange={setFilterState}
       />
       <div className={classes.map} ref={mapDivRef}></div>
     </div>
