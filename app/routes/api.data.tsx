@@ -3,7 +3,10 @@ import type { Route } from './+types/api.data';
 import type { sheets_v4, places_v1 } from 'googleapis';
 import { indexToSheetsColumn } from '~/lib/encode';
 
-const CACHE_SECONDS = 120;
+const CACHE_OUTPUT_SECONDS = 120;
+const CACHE_SHEETS_SECONDS = 60; // 1 minute
+const CACHE_PLACES_LOOKUP_SECONDS = 60 * 60; // 1 day
+
 const PLACE_REGEXP = new RegExp(
   /https:\/\/www.google.com\/maps\/place\/.+\/data=!.+!.+![0-9]+s([0-9A-Za-z-_]+)/
 );
@@ -19,7 +22,12 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
       `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}`
     );
     apiURL.searchParams.set('key', context.cloudflare.env.GOOGLE_API_KEY);
-    const res = await fetch(apiURL);
+    const res = await fetch(apiURL, {
+      cf: {
+        cacheTtl: CACHE_SHEETS_SECONDS,
+        cacheEverything: true,
+      },
+    });
     if (!res.ok) {
       throw new Response(`Failed to read sheet metadata: ${await res.text()}`, {
         status: 400,
@@ -41,7 +49,12 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
   apiURL.searchParams.set('fields', '*');
   apiURL.searchParams.set('excludeTablesInBandedRanges', 'false');
 
-  const res = await fetch(apiURL);
+  const res = await fetch(apiURL, {
+    cf: {
+      cacheTtl: CACHE_SHEETS_SECONDS,
+      cacheEverything: true,
+    },
+  });
 
   if (!res.ok) {
     throw new Response(
@@ -118,7 +131,12 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
           context.cloudflare.env.GOOGLE_API_KEY
         );
         placesURL.searchParams.set('fields', 'location,displayName');
-        const placeRes = await fetch(placesURL);
+        const placeRes = await fetch(placesURL, {
+          cf: {
+            cacheTtl: CACHE_PLACES_LOOKUP_SECONDS,
+            cacheEverything: true,
+          },
+        });
 
         if (!placeRes.ok) {
           console.warn(
@@ -172,7 +190,7 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
 }
 
 export async function loader(props: Route.LoaderArgs) {
-  const existing = CACHE_SECONDS
+  const existing = CACHE_OUTPUT_SECONDS
     ? await props.context.cloudflare.env.KV.get('sheets-data')
     : null;
   if (existing != null) {
@@ -183,7 +201,7 @@ export async function loader(props: Route.LoaderArgs) {
       'sheets-data',
       JSON.stringify(output),
       {
-        expirationTtl: CACHE_SECONDS,
+        expirationTtl: CACHE_OUTPUT_SECONDS,
       }
     );
     return output;
