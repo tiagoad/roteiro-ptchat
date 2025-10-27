@@ -55,3 +55,7 @@ body,
         margin: .5em 0;
     }
 }
+
+:global(.maplibregl-popup-close-button) {
+    right: .5em;
+}
