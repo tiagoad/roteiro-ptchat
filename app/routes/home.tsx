@@ -55,8 +55,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const placeTypes = Object.fromEntries(
     data.table.placeTypes.map((name, i) => {
       const color = new Color('OKLCH', [
-        0.7,
-        0.15,
+        0.6,
+        0.35,
         320 * (i / (data.table.placeTypes.length - 1)),
       ]).toString({ format: 'hex' });
 

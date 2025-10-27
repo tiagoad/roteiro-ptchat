@@ -3,7 +3,7 @@ import type { Route } from './+types/api.data';
 import type { sheets_v4, places_v1 } from 'googleapis';
 import { indexToSheetsColumn } from '~/lib/encode';
 
-const CACHE_SECONDS = 60;
+const CACHE_SECONDS = import.meta.env.DEV ? undefined : 60;
 const PLACE_REGEXP = new RegExp(
   /https:\/\/www.google.com\/maps\/place\/.+\/data=!.+!.+![0-9]+s([0-9A-Za-z-]+)/
 );
@@ -167,7 +167,9 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
 }
 
 export async function loader(props: Route.LoaderArgs) {
-  const existing = await props.context.cloudflare.env.KV.get('sheets-data');
+  const existing = CACHE_SECONDS
+    ? await props.context.cloudflare.env.KV.get('sheets-data')
+    : null;
   if (existing != null) {
     return JSON.parse(existing) as Awaited<ReturnType<typeof uncachedLoader>>;
   } else {
