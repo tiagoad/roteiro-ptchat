@@ -93,18 +93,22 @@ function Filters({
     <div className={classes.filters}>
       <div
         className={classes.filter}
+        style={{ opacity: state.size === filters.length ? 1.0 : 0.5 }}
         onClick={() => {
-          onChange(new Set(filters.map((f) => f.label)));
+          onChange(
+            state.size === filters.length
+              ? new Set([])
+              : new Set(filters.map((f) => f.label))
+          );
         }}
       >
         <span
           className={classes.filterColor}
           style={{
             backgroundColor: 'white',
-            opacity: state.size === filters.length ? 1.0 : 0.3,
           }}
         />
-        <span>Mostrar Todos</span>
+        <span>Todos</span>
       </div>
 
       <hr />
@@ -115,6 +119,7 @@ function Filters({
         return (
           <div
             className={classes.filter}
+            style={{ opacity: isSelected ? 1.0 : 0.5 }}
             key={label}
             onClick={() => {
               toggleFilter(label);
@@ -124,7 +129,6 @@ function Filters({
               className={classes.filterColor}
               style={{
                 backgroundColor: color,
-                opacity: isSelected ? 1.0 : 0.3,
               }}
             />
             <span>{label}</span>
