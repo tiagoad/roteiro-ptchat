@@ -11,37 +11,37 @@ const PLACE_REGEXP = new RegExp(
   /https:\/\/www.google.com\/maps\/place\/.+\/data=!.+!.+![0-9]+s([0-9A-Za-z-_]+)/
 );
 
-type Place =
-  | {
-      status: 'ok';
-      types: string[];
+type Error = {
+  status: 'error';
+  error: string;
+  meta: any;
+};
+
+type Place = {
+  status: 'ok';
+  types: string[];
+  location: {
+    city: string;
+    name: string;
+    metadata: {
       location: {
-        city: string;
-        name: string;
-        metadata: {
-          location: {
-            latitude: number;
-            longitude: number;
-          };
-          displayName: {
-            text: string;
-            languageCode: string;
-          };
-        };
-        url: string;
-        placeId: string;
+        latitude: number;
+        longitude: number;
       };
-      reviews: Array<{
-        user: string;
-        ranking: number;
-        notes: string;
-      }>;
-    }
-  | {
-      status: 'error';
-      error: string;
-      meta: any;
+      displayName: {
+        text: string;
+        languageCode: string;
+      };
     };
+    url: string;
+    placeId: string;
+  };
+  reviews: Array<{
+    user: string;
+    ranking: number;
+    notes: string;
+  }>;
+};
 
 async function uncachedLoader({ context }: Route.LoaderArgs) {
   const sheetId = '1jGBpghcuheyLSHMmsIEGt106p-SerbnBbOkZlOpW3lI';
@@ -126,7 +126,7 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
   const header = table.columnProperties!;
 
   const rows = await Promise.all(
-    rowData.slice(2).map<Promise<Place>>(async (row, i) => {
+    rowData.slice(2).map<Promise<Place | Error>>(async (row, i) => {
       const data = Object.fromEntries(
         row.values!.map((v, colIdx) => {
           const props = header![colIdx]!;
@@ -156,7 +156,7 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
           meta: {
             rowData: data,
           },
-        } satisfies Place;
+        } satisfies Error;
       }
 
       const placeMatch = PLACE_REGEXP.exec(mapsUrl);
@@ -168,7 +168,7 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
           meta: {
             rowData: data,
           },
-        } satisfies Place;
+        } satisfies Error;
       }
 
       const placeId = PLACE_REGEXP.exec(mapsUrl)![1];
@@ -196,7 +196,7 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
             placeId: placeId,
             rowData: data,
           },
-        } satisfies Place;
+        } satisfies Error;
         //throw new Response('Failed to read place metadata', { status: 400 });
       }
 
@@ -232,14 +232,14 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
     })
   );
 
-  const rowIndex = new Map<string, (typeof rows)[number]>();
+  const rowIndex = new Map<string, Place>();
   for (const row of rows) {
     if (row.status === 'error') {
       continue;
     }
 
     const existing = rowIndex.get(row.location!.placeId);
-    if (existing !== undefined && existing.status !== 'error') {
+    if (existing !== undefined) {
       existing.reviews.push(row.reviews[0]);
       for (const typ of row.types) {
         if (existing.types.indexOf(typ) === -1) {
@@ -251,7 +251,6 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
     }
   }
   const mergedRows = Array.from(rowIndex.values());
-
   const errorRows = rows.filter((r) => r.status === 'error');
 
   return { errorRows, rows: mergedRows, placeTypes };
