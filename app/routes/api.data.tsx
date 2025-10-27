@@ -5,7 +5,7 @@ import { indexToSheetsColumn } from '~/lib/encode';
 
 const CACHE_SECONDS = import.meta.env.DEV ? undefined : 60;
 const PLACE_REGEXP = new RegExp(
-  /https:\/\/www.google.com\/maps\/place\/.+\/data=!.+!.+![0-9]+s([0-9A-Za-z-]+)/
+  /https:\/\/www.google.com\/maps\/place\/.+\/data=!.+!.+![0-9]+s([0-9A-Za-z-_]+)/
 );
 
 async function uncachedLoader({ context }: Route.LoaderArgs) {
@@ -119,6 +119,9 @@ async function uncachedLoader({ context }: Route.LoaderArgs) {
         const placeRes = await fetch(placesURL);
 
         if (!placeRes.ok) {
+          console.warn(
+            `Failed to get place information for ${mapsUrl} (placeId=${placeId})`
+          );
           return undefined;
           //throw new Response('Failed to read place metadata', { status: 400 });
         }
