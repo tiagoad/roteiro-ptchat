@@ -126,6 +126,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       el.className = classes.marker;
       el.textContent =
         place.reviews.length === 1 ? '' : `${place.reviews.length}`;
+      el.title = place.location.name;
 
       const gradientSteps = (() => {
         const BORDER_COLOR = 'white';
@@ -248,9 +249,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
     return () => {
       // cleanup
+      markers?.forEach(({ marker }) => marker.remove());
       map.remove();
     };
-  }, [mapDivRef]);
+  }, []);
 
   useEffect(() => {
     if (!mapRef.current || !bounds) return;
