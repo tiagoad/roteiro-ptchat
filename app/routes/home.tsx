@@ -67,10 +67,15 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const { filterOptions, typeColors } = useMemo(() => {
     if (data) {
       const filterOptions = {
-        types: data.uniques.types.map((name, i) => ({
-          value: name,
-          color: COLOR_SCALE[i % COLOR_SCALE.length],
-        })),
+        types: data.order.types
+          .map((name, i) => ({
+            value: name,
+            color: COLOR_SCALE[i % COLOR_SCALE.length],
+          }))
+          .filter(({ value }) => {
+            // this filtering is done later, to keep the colors fixed to the in-sheet order
+            return data.uniques.types.indexOf(value) !== -1;
+          }),
         users: data.uniques.users.map((value) => ({ value })),
         cities: data.uniques.cities.map((value) => ({ value })),
         ratings: {
