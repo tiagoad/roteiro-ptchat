@@ -48,11 +48,20 @@
     margin-bottom: .5rem;
 }
 
-.cleanFilters {
+.cleanButton {
     margin-top: .5em;
     border: 1px solid black;
+    border-radius: 3px;
     text-align: center;
     width: 100%;
+}
+
+.cleanButton:hover {
+    background: #eee;
+}
+
+.cleanButton:active {
+    font-weight: bold;
 }
 
 .typeFilter {
@@ -63,6 +72,13 @@
     cursor: pointer;
 
     opacity: 0.5;
+}
+
+.typeFilter:hover {
+    text-decoration: underline;
+    > .filterIcon {
+        border-width: 1.5px;
+    }
 }
 
 .typeFilter.selected {
@@ -98,6 +114,11 @@
     opacity: 0.5;
 }
 
+.starFilter:hover > svg {
+    stroke-width: 3px;
+}
+
+
 .starFilter.selected {
     opacity: 1.0;
 }
@@ -108,6 +129,13 @@
     column-gap: .5em;
     cursor: pointer;
     opacity: 0.5;
+}
+
+.userFilter:hover {
+    text-decoration: underline;
+    > .filterIcon {
+        border-width: 1.5px;
+    }
 }
 
 .userFilter.selected {

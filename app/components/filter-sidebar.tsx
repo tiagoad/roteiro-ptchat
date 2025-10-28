@@ -273,10 +273,10 @@ export function FilterSidebar({
               </div>
             )}
 
-            <button className={classes.cleanFilters} onClick={() => reset(tab)}>
+            <button className={classes.cleanButton} onClick={() => reset(tab)}>
               Todos
             </button>
-            <button className={classes.cleanFilters} onClick={() => reset()}>
+            <button className={classes.cleanButton} onClick={() => reset()}>
               Estado Inicial
             </button>
           </div>

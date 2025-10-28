@@ -134,8 +134,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         const count = place.types.length;
         const stepColorPct = (100 - BORDER_PCT * (count - 1)) / count;
 
-        console.log({ count, stepColorPct });
-
         const steps = [];
         let curr = 0;
         for (let i = 0; i < count; i++) {
@@ -275,16 +273,15 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   useEffect(() => {
     if (!markers || !filterState || !mapRef.current) return;
 
+    markers.forEach(({ marker }) => marker.remove());
     for (const { marker, sets } of markers) {
       const isVisible =
         sets.rankings.intersection(filterState.ratings).size > 0 &&
         sets.users.intersection(filterState.users).size > 0 &&
         sets.types.intersection(filterState.types).size > 0;
 
-      if (isVisible && !marker._map) {
+      if (isVisible) {
         marker.addTo(mapRef.current);
-      } else if (!isVisible && marker._map) {
-        marker.remove();
       }
     }
   }, [markers, filterState]);
