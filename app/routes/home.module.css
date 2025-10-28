@@ -62,3 +62,7 @@ body,
 :global(.maplibregl-popup-close-button) {
     right: .5em;
 }
+
+:global(.maplibregl-popup-content) {
+    width: 25em;
+}

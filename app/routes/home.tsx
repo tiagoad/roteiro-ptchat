@@ -198,7 +198,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                         }
                     </span>
                 </div>
-                <div class="notes">${DOMPurify.sanitize(r.notes!)}</div>
+                <div class="notes">${DOMPurify.sanitize(r.notes!)
+                  .split('\n')
+                  .map((line) => `<p>${line}</p>`)
+                  .join('')}</div>
                 </div>
             `
               )
