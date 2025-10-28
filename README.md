@@ -13,3 +13,13 @@ Some secrets are needed to work in this app. To set up local secrets:
 # Development
 
 Run the development server with `pnpm dev`.
+
+## Structure
+
+This project is hosted on [Cloudflare Workers](https://developers.cloudflare.com/), using [React Router](https://reactrouter.com/home) as a framework.  
+
+The home page (map) route is located in [/app/routes/home.tsx](/app/routes/home.tsx).
+
+Data is pulled from Google Sheets and Google Places and turned into a neat json in [/app/routes/api.data.tsx](/app/routes/api.data.tsx), served in `/api/data` as JSON.
+
+Code is still very ""MVP"" quality.....
