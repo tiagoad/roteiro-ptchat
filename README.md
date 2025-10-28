@@ -1,16 +1,15 @@
+# Dependencies
+
+Install dependencies with `pnpm i`. You will need [pnpm](https://pnpm.io/installation).
+
 # Secrets
 
-In the root directory, create a file named `.dev.vars` with the following content:
-  `GOOGLE_API_KEY=<api key>`
+Some secrets are needed to work in this app. To set up local secrets:
 
-The API key needs access to the Sheets API and Places API.
+1. Copy the file `.dev.vars.example` into `.dev.vars`.
+2. Set `GOOGLE_API_KEY` to a Google Cloud API key with access to the Sheets and Places APIs.
+3. Set `GOOGLE_SHEET_ID` to the ID of the database sheet. This is the code after `/spreadsheets/d/` in the URL.
 
 # Development
 
-1. install deps:
-   
-   `pnpm i`
-
-2. run dev server
-
-    `pnpm dev`
+Run the development server with `pnpm dev`.
