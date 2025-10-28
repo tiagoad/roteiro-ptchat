@@ -258,8 +258,8 @@ async function processRow({
     | 'Cidade'
     | 'Google Maps'
     | 'User'
-    | 'Rank'
-    | 'Notas';
+    | 'Estrelas'
+    | 'Crítica';
 
   // turn array of columns into an object
   const data = Object.fromEntries(
@@ -365,8 +365,8 @@ async function processRow({
       reviews: [
         {
           user: data.User.data.formattedValue!,
-          ranking: data.Rank.data.effectiveValue!.numberValue || 0,
-          notes: data.Notas.data.formattedValue || '',
+          ranking: data.Estrelas.data.effectiveValue!.numberValue || 0,
+          notes: data['Crítica'].data.formattedValue || '',
         },
       ],
     },
