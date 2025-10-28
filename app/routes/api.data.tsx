@@ -185,7 +185,7 @@ async function fetchData({
   return {
     places: Array.from(places.values()),
     uniques: {
-      types: Array.from(uniques.types.values()),
+      types: placeTypes,
       users: Array.from(uniques.users.values()),
       cities: Array.from(uniques.cities.values()),
     },
