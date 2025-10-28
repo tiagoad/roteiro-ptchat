@@ -189,7 +189,6 @@ async function fetchData({
       users: Array.from(uniques.users.values()),
       cities: Array.from(uniques.cities.values()),
     },
-    rows,
     errors,
   };
 }
