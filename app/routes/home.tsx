@@ -6,15 +6,15 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 import type { loader as apiLoader } from './api.data';
 import classes from './home.module.css';
-import { useFetcher, useLoaderData } from 'react-router';
+import { useFetcher } from 'react-router';
 
 import DOMPurify from 'dompurify';
 import {
   FilterSidebar,
   useFilters,
   type FilterOptions,
-  type FilterState,
 } from '~/components/filter-sidebar';
+import { average } from '~/lib/math';
 
 const COLOR_SCALE = [
   '#1f77b4',
@@ -124,9 +124,16 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       const el = document.createElement('div');
       el.className = classes.marker;
-      el.textContent =
+      /*el.textContent =
         place.reviews.length === 1 ? '' : `${place.reviews.length}`;
-      el.title = place.location.name;
+      el.title = place.location.name;*/
+
+      const avgStars = average(place.reviews.map((r) => r.ranking));
+      el.textContent = avgStars.toFixed(0);
+
+      const opacity = avgStars >= 4 ? 1.0 : avgStars >= 3 ? 0.85 : 0.5;
+
+      el.style.filter = `opacity(${opacity * 100}%)`;
 
       const gradientSteps = (() => {
         const BORDER_COLOR = 'white';
@@ -207,6 +214,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       return {
         marker,
+        avgStars,
         sets: {
           types: new Set(place.types),
           users: new Set(place.reviews.map((r) => r.user)),
@@ -214,6 +222,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         },
       };
     });
+
+    markers.sort((a, b) => a.avgStars - b.avgStars);
 
     return {
       markers,
