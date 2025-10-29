@@ -25,6 +25,7 @@ export async function loader(props: Route.LoaderArgs) {
     const output = await fetchData({
       googleApiKey: props.context.cloudflare.env.GOOGLE_API_KEY,
       googleSheetId: props.context.cloudflare.env.GOOGLE_SHEET_ID,
+      kv: props.context.cloudflare.env.KV,
     });
     await props.context.cloudflare.env.KV.put(
       'sheets-data',
@@ -67,12 +68,25 @@ type Place = {
   }>;
 };
 
+type GooglePlaceMetadata = {
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+  displayName: {
+    text: string;
+    languageCode: string;
+  };
+};
+
 async function fetchData({
   googleSheetId,
   googleApiKey,
+  kv,
 }: {
   googleSheetId: string;
   googleApiKey: string;
+  kv: KVNamespace;
 }) {
   const tableRange = await getTableRange({
     sheetId: googleSheetId,
@@ -132,6 +146,7 @@ async function fetchData({
         rowIdx,
         columnProperties,
         googleApiKey,
+        kv,
       })
     )
   );
@@ -241,11 +256,13 @@ async function processRow({
   columnProperties,
   rowIdx,
   googleApiKey,
+  kv,
 }: {
   row: sheets_v4.Schema$RowData;
   rowIdx: number;
   columnProperties: sheets_v4.Schema$TableColumnProperties[];
   googleApiKey: string;
+  kv: KVNamespace;
 }): Promise<
   | {
       ok: true;
@@ -314,23 +331,63 @@ async function processRow({
   }
 
   const placeId = PLACE_REGEXP.exec(mapsUrl)![1];
-  const placesURL = new URL(
-    `https://places.googleapis.com/v1/places/${placeId}`
-  );
-  placesURL.searchParams.set('key', googleApiKey);
-  placesURL.searchParams.set('fields', 'location,displayName');
-  const placeRes = await fetch(placesURL, {
-    cf: {
-      cacheTtl: CACHE_PLACES_LOOKUP_SECONDS,
-      cacheEverything: true,
-    },
+
+  const cacheKey = `places/${placeId}`;
+  let placeMetadata = await kv.get<'error' | GooglePlaceMetadata>(cacheKey, {
+    type: 'json',
   });
 
-  if (!placeRes.ok) {
-    console.warn(
-      `Failed to get place information for ${mapsUrl} (placeId=${placeId})`
-    );
+  if (placeMetadata === 'error') {
+    return {
+      ok: false,
+      data: {
+        error: `CACHED: No place information for ${mapsUrl}`,
+        meta: {
+          placeId: placeId,
+          rowData: data,
+        },
+      },
+    };
+  }
 
+  try {
+    if (placeMetadata === null) {
+      const placesURL = new URL(
+        `https://places.googleapis.com/v1/places/${placeId}`
+      );
+      placesURL.searchParams.set('key', googleApiKey);
+      placesURL.searchParams.set('fields', 'location,displayName');
+      const placeRes = await fetch(placesURL, {
+        cf: {
+          cacheTtl: CACHE_PLACES_LOOKUP_SECONDS,
+          cacheEverything: true,
+        },
+      });
+
+      if (!placeRes.ok) {
+        console.warn(
+          `Failed to get place information for ${mapsUrl} (placeId=${placeId})`
+        );
+
+        throw new Error(`Failed to get place information for ${mapsUrl}`);
+      }
+
+      placeMetadata = await placeRes.json<{
+        location: {
+          latitude: number;
+          longitude: number;
+        };
+        displayName: {
+          text: string;
+          languageCode: string;
+        };
+      }>();
+
+      await kv.put(cacheKey, JSON.stringify(placeMetadata));
+    }
+  } catch (err) {
+    await kv.put(cacheKey, 'error');
+    console.trace('Error getting place information');
     return {
       ok: false,
       data: {
@@ -342,17 +399,6 @@ async function processRow({
       },
     };
   }
-
-  const placeMetadata = await placeRes.json<{
-    location: {
-      latitude: number;
-      longitude: number;
-    };
-    displayName: {
-      text: string;
-      languageCode: string;
-    };
-  }>();
 
   return {
     ok: true,
