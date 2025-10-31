@@ -122,6 +122,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
     const markers = data.places.map((place) => {
       const { latitude, longitude } = place.location.metadata.location!;
+
       min.lat = Math.min(min.lat, latitude!);
       min.lng = Math.min(min.lng, longitude!);
       max.lat = Math.max(max.lat, latitude!);
@@ -134,7 +135,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       el.title = place.location.name;*/
 
       const avgStars = average(place.reviews.map((r) => r.ranking));
-      el.textContent = avgStars.toFixed(0);
+      el.textContent = Math.floor(avgStars).toString();
 
       const opacity = avgStars >= 4 ? 1.0 : avgStars >= 3 ? 0.85 : 0.5;
 
@@ -189,7 +190,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                           .fill(undefined)
                           .map(
                             (_, i) =>
-                              `<span class="star ${i < r.ranking! ? 'normal' : 'dimmed'}">★</span>`
+                              `<span class="star ${i < Math.floor(r.ranking)! ? 'normal' : 'dimmed'}">★</span>`
                           )
                           .join('')}
                         ${
@@ -296,7 +297,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     markers.forEach(({ marker }) => marker.remove());
     for (const { marker, sets } of markers) {
       const isVisible =
-        sets.rankings.intersection(filterState.ratings).size > 0 &&
+        new Set([...sets.rankings].map((r) => Math.floor(r))).intersection(
+          filterState.ratings
+        ).size > 0 &&
         sets.users.intersection(filterState.users).size > 0 &&
         sets.types.intersection(filterState.types).size > 0;
 

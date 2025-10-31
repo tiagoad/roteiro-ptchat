@@ -356,7 +356,7 @@ async function processRow({
         `https://places.googleapis.com/v1/places/${placeId}`
       );
       placesURL.searchParams.set('key', googleApiKey);
-      placesURL.searchParams.set('fields', 'location,displayName');
+      placesURL.searchParams.set('fields', '    ');
       const placeRes = await fetch(placesURL, {
         cf: {
           cacheTtl: CACHE_PLACES_LOOKUP_SECONDS,
