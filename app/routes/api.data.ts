@@ -48,16 +48,7 @@ type Place = {
   location: {
     city: string;
     name: string;
-    metadata: {
-      location: {
-        latitude: number;
-        longitude: number;
-      };
-      displayName: {
-        text: string;
-        languageCode: string;
-      };
-    };
+    metadata: GooglePlaceMetadata;
     url: string;
     placeId: string;
   };
@@ -78,6 +69,16 @@ type GooglePlaceMetadata = {
     languageCode: string;
   };
 };
+
+type GooglePlaceKVEntry =
+  | {
+      ok: true;
+      data: GooglePlaceMetadata;
+    }
+  | {
+      ok: false;
+      data: any;
+    };
 
 async function fetchData({
   googleSheetId,
@@ -251,6 +252,24 @@ async function getTableRange({
   return `${indexToSheetsColumn(range.startColumnIndex!)}${range?.startRowIndex}:${indexToSheetsColumn(range.endColumnIndex!)}${range?.endRowIndex}`;
 }
 
+type RowResult =
+  | {
+      ok: true;
+      data: Place;
+    }
+  | {
+      ok: false;
+      data: Error;
+    };
+
+type ColumnName =
+  | 'Tipo'
+  | 'Cidade'
+  | 'Google Maps'
+  | 'User'
+  | 'Estrelas'
+  | 'Crítica';
+
 async function processRow({
   row,
   columnProperties,
@@ -263,24 +282,7 @@ async function processRow({
   columnProperties: sheets_v4.Schema$TableColumnProperties[];
   googleApiKey: string;
   kv: KVNamespace;
-}): Promise<
-  | {
-      ok: true;
-      data: Place;
-    }
-  | {
-      ok: false;
-      data: Error;
-    }
-> {
-  type ColumnName =
-    | 'Tipo'
-    | 'Cidade'
-    | 'Google Maps'
-    | 'User'
-    | 'Estrelas'
-    | 'Crítica';
-
+}): Promise<RowResult> {
   // turn array of columns into an object
   const data = Object.fromEntries(
     row.values!.map((v, colIdx) => {
@@ -331,93 +333,113 @@ async function processRow({
   }
 
   const placeId = PLACE_REGEXP.exec(mapsUrl)![1];
+  const placeMetadata = await getPlaceMetadata({ placeId, kv, googleApiKey });
+  if (placeMetadata?.ok) {
+    return {
+      ok: true as const,
+      data: {
+        types: data.Tipo.data.formattedValue?.split(', ') || [],
+        location: {
+          city: data.Cidade.data.formattedValue!,
+          name: data['Google Maps'].data.formattedValue!,
+          metadata: placeMetadata.data,
+          url: mapsUrl,
+          placeId: placeId,
+        },
+        reviews: [
+          {
+            user: data.User.data.formattedValue!,
+            ranking: data.Estrelas.data.effectiveValue!.numberValue || 0,
+            notes: data['Crítica'].data.formattedValue || '',
+          },
+        ],
+      },
+    };
+  } else {
+    return {
+      ok: false,
+      data: {
+        error: `There was a previous error fetching ${mapsUrl}. Delete KV entry to retry.`,
+        meta: {
+          placeId: placeId,
+          error: placeMetadata.data,
+        },
+      },
+    };
+  }
+}
 
+async function getPlaceMetadata({
+  placeId,
+  kv,
+  googleApiKey,
+}: {
+  placeId: string;
+  kv: KVNamespace;
+  googleApiKey: string;
+}): Promise<GooglePlaceKVEntry> {
   const cacheKey = `places/${placeId}`;
-  let placeMetadata = await kv.get<'error' | GooglePlaceMetadata>(cacheKey, {
+  let placeMetadata = await kv.get<GooglePlaceKVEntry>(cacheKey, {
     type: 'json',
   });
 
-  if (placeMetadata === 'error') {
-    return {
-      ok: false,
-      data: {
-        error: `CACHED: No place information for ${mapsUrl}`,
-        meta: {
-          placeId: placeId,
-          rowData: data,
-        },
-      },
-    };
-  }
-
-  try {
-    if (placeMetadata === null) {
-      const placesURL = new URL(
-        `https://places.googleapis.com/v1/places/${placeId}`
-      );
-      placesURL.searchParams.set('key', googleApiKey);
-      placesURL.searchParams.set('fields', '    ');
-      const placeRes = await fetch(placesURL, {
-        cf: {
-          cacheTtl: CACHE_PLACES_LOOKUP_SECONDS,
-          cacheEverything: true,
-        },
-      });
-
-      if (!placeRes.ok) {
-        console.warn(
-          `Failed to get place information for ${mapsUrl} (placeId=${placeId})`
+  if (placeMetadata !== null) {
+    return placeMetadata;
+  } else {
+    const result = await (async function (): Promise<GooglePlaceKVEntry> {
+      try {
+        const placesURL = new URL(
+          `https://places.googleapis.com/v1/places/${placeId}`
         );
+        placesURL.searchParams.set('key', googleApiKey);
+        placesURL.searchParams.set('fields', 'location,displayName');
+        const placeRes = await fetch(placesURL, {
+          cf: {
+            cacheTtl: CACHE_PLACES_LOOKUP_SECONDS,
+            cacheEverything: true,
+          },
+        });
 
-        throw new Error(`Failed to get place information for ${mapsUrl}`);
+        if (!placeRes.ok) {
+          const error = await placeRes.text();
+          console.warn(
+            `Failed to get place information for placeId=${placeId}`,
+            error
+          );
+          return {
+            ok: false,
+            data: {
+              error,
+            },
+          };
+        }
+
+        const data = await placeRes.json<{
+          location: {
+            latitude: number;
+            longitude: number;
+          };
+          displayName: {
+            text: string;
+            languageCode: string;
+          };
+        }>();
+
+        return {
+          ok: true,
+          data,
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          data: {
+            error: `${err}`,
+          },
+        };
       }
+    })();
 
-      placeMetadata = await placeRes.json<{
-        location: {
-          latitude: number;
-          longitude: number;
-        };
-        displayName: {
-          text: string;
-          languageCode: string;
-        };
-      }>();
-
-      await kv.put(cacheKey, JSON.stringify(placeMetadata));
-    }
-  } catch (err) {
-    await kv.put(cacheKey, 'error');
-    console.trace('Error getting place information');
-    return {
-      ok: false,
-      data: {
-        error: `No place information for ${mapsUrl}`,
-        meta: {
-          placeId: placeId,
-          rowData: data,
-        },
-      },
-    };
+    await kv.put(cacheKey, JSON.stringify(result));
+    return result;
   }
-
-  return {
-    ok: true,
-    data: {
-      types: data.Tipo.data.formattedValue?.split(', ') || [],
-      location: {
-        city: data.Cidade.data.formattedValue!,
-        name: data['Google Maps'].data.formattedValue!,
-        metadata: placeMetadata,
-        url: mapsUrl,
-        placeId: placeId,
-      },
-      reviews: [
-        {
-          user: data.User.data.formattedValue!,
-          ranking: data.Estrelas.data.effectiveValue!.numberValue || 0,
-          notes: data['Crítica'].data.formattedValue || '',
-        },
-      ],
-    },
-  };
 }
