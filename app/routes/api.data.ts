@@ -348,7 +348,7 @@ async function processRow({
         },
         reviews: [
           {
-            user: data.User.data.formattedValue!,
+            user: data.User.data.formattedValue!.trim(),
             ranking: data.Estrelas.data.effectiveValue!.numberValue || 0,
             notes: data['Crítica'].data.formattedValue || '',
           },
